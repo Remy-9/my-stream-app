@@ -8,44 +8,51 @@
     <style>
         * { box-sizing: border-box; }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100%;
-            background-color: #140f00; /* لون احتياطي داكن يطابق ألوان الخلفية لمنع البياض تماماً */
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start; /* يبدأ من الأعلى ليعطي مرونة كاملة عند التدوير بالعرض */
-            
-            /* 🔥 السر البرمجي لثبات الخلفية فل سكرين على كل الجوالات والأبعاد ومنع التكرار */
+        /* 🔥 السر هنا: تثبيت الخلفية على الـ html مباشرة يضمن الفل سكرين على أي شاشة بالكون ومنع الفراغ السفلي */
+        html {
             background-image: url('logo-mom.png');
             background-size: cover;         
             background-position: center center; 
             background-repeat: no-repeat;   
-            background-attachment: fixed; /* تثبيت رائع متناسق مع أبعاد html */
-            
+            background-attachment: fixed; /* تثبيت الخلفية لتتحرك العناصر فوقها بسلاسة */
+            height: 100%;
+            width: 100%;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh; /* يغطي كامل الارتفاع المتاح */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* يوسط الصندوق بالملّي في شاشة الطول */
+            background: transparent; /* جعل البودي شفاف عشان تظهر خلفية الـ html */
             color: #f1e4d3;
             text-align: center;
-            padding: 40px 20px; /* مسافة أمان علوية وسفلية مريحة للجوال */
-            overflow-y: auto; /* السماح بالتمرير السلس للمحتوى الداخلي دون تخريب الخلفية */
+            padding: 40px 20px;
+            overflow-y: auto; /* السماح بالتمرير الطبيعي والمريح */
+        }
+
+        /* تكتيك ذكي: إذا قلب المتابع الجوال بالعرض وصارت الشاشة قصيرة، نرفع الصندوق شوي عشان السكرول */
+        @media (max-height: 600px) {
+            body {
+                justify-content: flex-start;
+            }
         }
 
         .container { 
             width: 100%;
-            max-width: 440px; /* حجم انسيابي ومثالي جداً لشاشات الجوالات */
+            max-width: 440px; /* حجم انسيابي ومثالي جداً لشاشات الجوالات واللابتوب */
             background: rgba(20, 20, 20, 0.85); /* تعتيم فخم شبه شفاف يبرز جمال الخلفية */
             backdrop-filter: blur(10px); /* تأثير زجاجي ناعم يواكب التصاميم الحديثة */
             padding: 30px 25px;
             border-radius: 24px;
             border: 1px solid rgba(255, 170, 0, 0.25);
             box-shadow: 0 20px 40px rgba(0,0,0,0.7);
-            margin: auto; /* لتوسيط الصندوق تلقائياً في الشاشة */
+            margin: auto 0; /* يضمن موازنة الأبعاد من الأعلى والأسفل */
         }
 
         .btn { 
