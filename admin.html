@@ -16,7 +16,7 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            background-image: url('majlis-bg.png.png');
+            background-image: url('majlis-bg.png');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -139,6 +139,15 @@
             <div id="queueContainer">
                 <div id="noMicText" style="text-align:center; color:#88aabf; padding-top:40px;">لا يوجد أحد في الانتظار حالياً.. 💬</div>
             </div>
+            
+            <div id="active-speaker-box" style="display: none; padding: 20px; background: rgba(136, 170, 191, 0.1); border: 2px solid #88aabf; border-radius: 12px; margin-top: 20px; text-align: center;">
+                <h3 style="color: #fff; margin-bottom: 15px;">🎙️ المتحدث الحالي: <span id="current-speaker-name" style="color: #88aabf;">-</span></h3>
+                
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="toggle-admin-mic" onclick="toggleAdminMic()" style="padding: 10px 20px; background-color: #2b5c74; color: white; border: none; border-radius: 6px; cursor: pointer;">🔇 كتم مايكي</button>
+                    <button id="mute-user-mic" onclick="toggleUserMic()" style="padding: 10px 20px; background-color: #d9534f; color: white; border: none; border-radius: 6px; cursor: pointer;">🤫 كتم المتابع</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -152,6 +161,66 @@
         let peerConnection;
         let activeSpeakerId = null;
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        // المتغيرات الجديدة للتحكم بالصوت
+        let localStream = null;
+        let adminMicMuted = false;
+        let userMicMuted = false;
+
+        // طلب صلاحية مايك الستريمر (الأدمن) فور فتح الصفحة
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            localStream = stream;
+            console.log("تم تشغيل مايك الستريمر بنجاح");
+        }).catch(err => {
+            console.error("تنبيه: لم يتم تفعيل مايك الأدمن أو تم رفض الصلاحية:", err);
+        });
+
+        // دالة كتم وفك كتم مايك الستريمر
+        function toggleAdminMic() {
+            if (localStream && localStream.getAudioTracks().length > 0) {
+                adminMicMuted = !adminMicMuted;
+                localStream.getAudioTracks()[0].enabled = !adminMicMuted;
+                
+                const btn = document.getElementById('toggle-admin-mic');
+                if (adminMicMuted) {
+                    btn.innerText = "🔊 تشغيل مايكي";
+                    btn.style.backgroundColor = "#5cb85c";
+                } else {
+                    btn.innerText = "🔇 كتم مايكي";
+                    btn.style.backgroundColor = "#2b5c74";
+                }
+            }
+        }
+
+        // دالة كتم وفك كتم مايك المتابع الحالي عبر السوكيت
+        function toggleUserMic() {
+            if (!activeSpeakerId) return;
+            userMicMuted = !userMicMuted;
+            
+            // إرسال أمر للسيرفر ليبلغ المتابع بكتم مايكه
+            socket.emit('controlUserMic', { userId: activeSpeakerId, mute: userMicMuted });
+
+            const btn = document.getElementById('mute-user-mic');
+            if (userMicMuted) {
+                btn.innerText = "🗣️ فك كتم المتابع";
+                btn.style.backgroundColor = "#5cb85c";
+            } else {
+                btn.innerText = "🤫 كتم المتابع";
+                btn.style.backgroundColor = "#d9534f";
+            }
+        }
+
+        // دالة لإخفاء صندوق التحكم وإعادة تصفير الأزرار عند خروج المتابع
+        function hideSpeakerBox() {
+            document.getElementById('active-speaker-box').style.display = 'none';
+            document.getElementById('current-speaker-name').innerText = "-";
+            userMicMuted = false;
+            const btn = document.getElementById('mute-user-mic');
+            if (btn) {
+                btn.innerText = "🤫 كتم المتابع";
+                btn.style.backgroundColor = "#d9534f";
+            }
+        }
 
         function addCardToBoard(type, text) {
             if(noMsgText) noMsgText.style.display = 'none';
@@ -182,7 +251,7 @@
                 item.innerHTML = `
                     <div style="font-size:18px; font-weight:bold;">🎙️ ${participant.name}</div>
                     <div>
-                        <button class="btn-action" onclick="acceptMic('${participant.id}')">تصعيد 🟢</button>
+                        <button class="btn-action" onclick="acceptMic('${participant.id}', '${participant.name}')">تصعيد 🟢</button>
                         <button class="btn-action btn-kick" onclick="rejectMic('${participant.id}')">إنزال 🔴</button>
                     </div>
                 `;
@@ -191,9 +260,16 @@
         });
 
         // === دالة بدء اتصال الصوت الحقيقي عند الضغط على تصعيد ===
-        async function acceptMic(id) {
+        async function acceptMic(id, name) {
             activeSpeakerId = id;
             peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // 🔥 إضافة صوت الأدمن (الستريمر) داخل الاتصال ليرسل للمتابع تلقائياً
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
 
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
@@ -207,6 +283,10 @@
                     remoteAudio.srcObject = event.streams[0];
                 }
             };
+
+            // إظهار صندوق المتحدث الحالي ووضع اسم المتابع
+            document.getElementById('active-speaker-box').style.display = 'block';
+            document.getElementById('current-speaker-name').innerText = name;
 
             // إرسال العرض (Offer) لبدء الاتصال بالمايك مع المتابع
             const offer = await peerConnection.createOffer({ offerToReceiveAudio: true });
@@ -228,6 +308,7 @@
             if (id === activeSpeakerId && peerConnection) {
                 peerConnection.close();
                 remoteAudio.srcObject = null;
+                hideSpeakerBox();
             }
         }
     </script>
