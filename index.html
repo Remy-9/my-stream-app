@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>موقع تفاعل البث</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: white; padding: 50px; }
+        .container { max-width: 600px; margin: auto; }
+        .btn { display: block; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; background-color: #7289da; color: white; }
+        .btn:hover { background-color: #5b73c7; }
+        .box { display: none; background: #2f3136; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        textarea { width: 100%; height: 100px; border-radius: 5px; padding: 10px; font-size: 16px; margin-bottom: 10px; background-color: #40444b; color: white; border: 1px solid #202225; }
+        #statusText { color: #faa61a; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>أهلاً بك في البث 👋</h1>
+        <p>اختر كيف تريد المشاركة اليوم:</p>
+        
+        <button class="btn" onclick="showSection('storyBox')">📖 ١. اكتب قصة صارت لك</button>
+        <button class="btn" onclick="showSection('topicBox')">💬 ٢. اقترح موضوع للنقاش</button>
+        <button class="btn" onclick="showSection('micBox')">🎙️ ٣. اطلب صعود مايك</button>
+
+        <div id="storyBox" class="box">
+            <h3>اكتب قصتك هنا:</h3>
+            <textarea id="storyText" placeholder="اكتب تفاصيل القصة..."></textarea>
+            <button class="btn" style="background-color: #43b581;" onclick="submitStory()">إرسال القصة</button>
+        </div>
+
+        <div id="topicBox" class="box">
+            <h3>ما هو الموضوع الذي تريد طرحه؟</h3>
+            <textarea id="topicText" placeholder="اكتب الموضوع باختصار..."></textarea>
+            <button class="btn" style="background-color: #43b581;" onclick="submitTopic()">إرسال الموضوع</button>
+        </div>
+
+        <div id="micBox" class="box">
+            <h3>طلب صعود مايك</h3>
+            <button id="micBtn" class="btn" style="background-color: #faa61a;" onclick="askForMic()">طلب انضمام للقائمة 🎙️</button>
+            <div id="statusText"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let localStream;
+        let peerConnection;
+        
+        // إعدادات الـ WebRTC الافتراضية
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function showSection(sectionId) {
+            document.getElementById('storyBox').style.display = 'none';
+            document.getElementById('topicBox').style.display = 'none';
+            document.getElementById('micBox').style.display = 'none';
+            document.getElementById(sectionId).style.display = 'block';
+        }
+
+        function submitStory() {
+            const text = document.getElementById('storyText').value;
+            if(text.trim() === "") return alert("الرجاء كتابة القصة أولاً!");
+            socket.emit('sendStory', text);
+            alert("تم إرسال قصتك بنجاح! 🎉");
+            document.getElementById('storyText').value = "";
+        }
+
+        function submitTopic() {
+            const text = document.getElementById('topicText').value;
+            if(text.trim() === "") return alert("الرجاء كتابة الموضوع أولاً!");
+            socket.emit('sendTopic', text);
+            alert("تم إرسال موضوعك بنجاح! 🎉");
+            document.getElementById('topicText').value = "";
+        }
+
+        function askForMic() {
+            socket.emit('requestMic');
+            document.getElementById('statusText').innerText = "تم وضعك في قائمة الانتظار.. انتظر قبول ريمي ⏳";
+            document.getElementById('micBtn').disabled = true;
+            document.getElementById('micBtn').style.backgroundColor = "#72767d";
+        }
+
+        // === منطق ربط الصوت الفعلي من جهة المتابع ===
+        socket.on('receiveSignal', async ({ from, signal }) => {
+            if (signal.type === 'offer') {
+                try {
+                    // طلب إذن المايك وتشغيله
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    
+                    peerConnection = new RTCPeerConnection(rtcConfig);
+                    
+                    // إضافة مسار الصوت الخاص بالمتابع إلى الاتصال
+                    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                    peerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            socket.emit('sendSignal', { to: from, signal: { type: 'candidate', candidate: event.candidate } });
+                        }
+                    };
+
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+
+                    socket.emit('sendSignal', { to: from, signal: answer });
+                    document.getElementById('statusText').innerText = "🎙️ أنت على المايك الآن مباشر مع ريمي!";
+                } catch (err) {
+                    console.error("فشل الوصول للمايك:", err);
+                    alert("يرجى السماح بصلاحية المايك للمتصفح!");
+                }
+            } else if (signal.type === 'candidate' && peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        });
+
+        socket.on('micStatus', (status) => {
+            if(status === 'disconnected') {
+                document.getElementById('statusText').innerText = "تم إنزالك من المايك أو رفض الطلب.";
+                document.getElementById('micBtn').disabled = false;
+                document.getElementById('micBtn').style.backgroundColor = "#faa61a";
+                
+                // إغلاق المايك والاتصال تماماً
+                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                if (peerConnection) peerConnection.close();
+            }
+        });
+    </script>
+</body>
+</html>

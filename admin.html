@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مجلس REMY - لوحة التحكم</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-image: url('majlis-bg.png.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #f1e4d3;
+        }
+
+        .main-container {
+            display: flex;
+            width: 95%;
+            max-width: 1200px;
+            gap: 20px;
+            margin-top: auto;
+            margin-bottom: 40px;
+        }
+
+        .board {
+            flex: 2;
+            background: rgba(26, 15, 0, 0.75);
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(255, 170, 0, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            min-height: 400px;
+        }
+
+        .mic-panel {
+            flex: 1;
+            background: rgba(15, 26, 38, 0.8);
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(0, 170, 255, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            min-height: 400px;
+        }
+
+        .section-title {
+            font-size: 22px;
+            border-bottom: 2px solid rgba(212, 163, 115, 0.4);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            color: #ffaa00;
+            text-shadow: 0 0 10px rgba(255,170,0,0.5);
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .blue-title {
+            color: #00aaff;
+            border-bottom: 2px solid rgba(0, 170, 255, 0.4);
+            text-shadow: 0 0 10px rgba(0,170,255,0.5);
+        }
+
+        .card {
+            background: rgba(74, 44, 17, 0.6);
+            border-right: 5px solid #ffaa00;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .queue-item {
+            background: rgba(20, 40, 60, 0.7);
+            border-right: 5px solid #00aaff;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-action {
+            background: #00aaff;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-kick {
+            background: #c0392b;
+            margin-right: 5px;
+        }
+
+        .btn-delete {
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: rgba(192, 57, 43, 0.85);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .content { font-size: 19px; color: #ffffff; }
+    </style>
+</head>
+<body>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <div class="main-container">
+        <div class="board">
+            <div class="section-title">🔥 رسايل المجلس الحالية مباشر 🔥</div>
+            <div id="messagesContainer">
+                <div id="noMsgText" style="text-align:center; color:#d4a373; padding-top:40px;">بانتظار مشاركات المتابعين... 👀</div>
+            </div>
+        </div>
+
+        <div class="mic-panel">
+            <div class="section-title blue-title">🎙️ طابور انتظار المايك </div>
+            <div id="queueContainer">
+                <div id="noMicText" style="text-align:center; color:#88aabf; padding-top:40px;">لا يوجد أحد في الانتظار حالياً.. 💬</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const container = document.getElementById('messagesContainer');
+        const noMsgText = document.getElementById('noMsgText');
+        const queueContainer = document.getElementById('queueContainer');
+        const remoteAudio = document.getElementById('remoteAudio');
+
+        let peerConnection;
+        let activeSpeakerId = null;
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function addCardToBoard(type, text) {
+            if(noMsgText) noMsgText.style.display = 'none';
+            const card = document.createElement('div');
+            card.className = 'card';
+            const badge = type === 'story' ? '<span style="background:#e65100; padding:3px 8px; border-radius:6px; font-size:12px;">قصة 📖</span>' : '<span style="background:#006064; padding:3px 8px; border-radius:6px; font-size:12px;">موضوع 💬</span>';
+            card.innerHTML = `
+                <div style="color:#ffaa00; font-weight:bold; margin-bottom:8px;">${badge}</div>
+                <div class="content">${text}</div>
+                <button class="btn-delete" onclick="this.parentElement.remove()">إنهاء</button>
+            `;
+            container.insertBefore(card, container.firstChild);
+        }
+
+        socket.on('displayStory', (text) => addCardToBoard('story', text));
+        socket.on('displayTopic', (text) => addCardToBoard('topic', text));
+
+        socket.on('updateQueue', (queue) => {
+            queueContainer.innerHTML = '';
+            if(queue.length === 0) {
+                queueContainer.innerHTML = '<div id="noMicText" style="text-align:center; color:#88aabf; padding-top:40px;">لا يوجد أحد في الانتظار حالياً.. 💬</div>';
+                return;
+            }
+            
+            queue.forEach((participant) => {
+                const item = document.createElement('div');
+                item.className = 'queue-item';
+                item.innerHTML = `
+                    <div style="font-size:18px; font-weight:bold;">🎙️ ${participant.name}</div>
+                    <div>
+                        <button class="btn-action" onclick="acceptMic('${participant.id}')">تصعيد 🟢</button>
+                        <button class="btn-action btn-kick" onclick="rejectMic('${participant.id}')">إنزال 🔴</button>
+                    </div>
+                `;
+                queueContainer.appendChild(item);
+            });
+        });
+
+        // === دالة بدء اتصال الصوت الحقيقي عند الضغط على تصعيد ===
+        async function acceptMic(id) {
+            activeSpeakerId = id;
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('sendSignal', { to: id, signal: { type: 'candidate', candidate: event.candidate } });
+                }
+            };
+
+            // استقبال المسار الصوتي وتمريره لعنصر الـ Audio في صفحتك لتسمعه
+            peerConnection.ontrack = (event) => {
+                if (event.streams && event.streams[0]) {
+                    remoteAudio.srcObject = event.streams[0];
+                }
+            };
+
+            // إرسال العرض (Offer) لبدء الاتصال بالمايك مع المتابع
+            const offer = await peerConnection.createOffer({ offerToReceiveAudio: true });
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('sendSignal', { to: id, signal: offer });
+        }
+
+        // استقبال رد المتابع وإشارات الـ WebRTC
+        socket.on('receiveSignal', async ({ from, signal }) => {
+            if (signal.type === 'answer' && peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+            } else if (signal.type === 'candidate' && peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        });
+
+        function rejectMic(id) {
+            socket.emit('removeMic', id);
+            if (id === activeSpeakerId && peerConnection) {
+                peerConnection.close();
+                remoteAudio.srcObject = null;
+            }
+        }
+    </script>
+</body>
+</html>
