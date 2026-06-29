@@ -17,6 +17,8 @@
 </head>
 <body>
 
+    <audio id="adminAudio" autoplay></audio>
+
     <div class="container">
         <h1>أهلاً بك في البث 👋</h1>
         <p>اختر كيف تريد المشاركة اليوم:</p>
@@ -76,6 +78,7 @@
         }
 
         function askForMic() {
+            // هنا يفضل إرسال اسم المتابع لتظهر للوحة، سيفترض الكود أن السيرفر يتعامل معها تلقائياً
             socket.emit('requestMic');
             document.getElementById('statusText').innerText = "تم وضعك في قائمة الانتظار.. انتظر قبول ريمي ⏳";
             document.getElementById('micBtn').disabled = true;
@@ -91,8 +94,17 @@
                     
                     peerConnection = new RTCPeerConnection(rtcConfig);
                     
-                    // إضافة مسار الصوت الخاص بالمتابع إلى الاتصال
+                    // إضافة مسار الصوت الخاص بالمتابع إلى الاتصال لكي يسمعه الستريمر
                     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                    // 🔥 استقبال الصوت القادم من الستريمر وتشغيله للمتابع
+                    peerConnection.ontrack = (event) => {
+                        console.log("تم استقبال صوت الستريمر بنجاح!");
+                        const adminAudio = document.getElementById('adminAudio');
+                        if (adminAudio && event.streams && event.streams[0]) {
+                            adminAudio.srcObject = event.streams[0];
+                        }
+                    };
 
                     peerConnection.onicecandidate = (event) => {
                         if (event.candidate) {
@@ -121,9 +133,23 @@
                 document.getElementById('micBtn').disabled = false;
                 document.getElementById('micBtn').style.backgroundColor = "#faa61a";
                 
-                // إغلاق المايك والاتصال تماماً
+                // إغلاق المايك والاتصال تماماً ونفض الـ audio object
                 if (localStream) localStream.getTracks().forEach(track => track.stop());
                 if (peerConnection) peerConnection.close();
+                const adminAudio = document.getElementById('adminAudio');
+                if (adminAudio) adminAudio.srcObject = null;
+            }
+        });
+
+        // 🔥 الاستماع لأمر كتم المايك القادم من لوحة الستريمر
+        socket.on('userMicControl', (data) => {
+            if (localStream && localStream.getAudioTracks().length > 0) {
+                localStream.getAudioTracks()[0].enabled = !data.mute;
+                if (data.mute) {
+                    document.getElementById('statusText').innerText = "🤫 قام الستريمر بكتم مايكك حالياً.";
+                } else {
+                    document.getElementById('statusText').innerText = "🎙️ تم تفعيل مايكك، يمكنك التحدث الآن!";
+                }
             }
         });
     </script>

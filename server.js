@@ -47,6 +47,11 @@ io.on('connection', (socket) => {
         io.to(id).emit('micStatus', 'disconnected');
     });
 
+    // === 🔥 استقبال أمر الكتم من الأدمن وتوجيهه للمتابع المعني ===
+    socket.on('controlUserMic', ({ userId, mute }) => {
+        io.to(userId).emit('userMicControl', { mute: mute });
+    });
+
     // === منطق تمرير إشارات الصوت (WebRTC Signaling) ===
     socket.on('sendSignal', ({ to, signal }) => {
         io.to(to).emit('receiveSignal', { from: socket.id, signal });
@@ -58,7 +63,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`السيرفر يعمل بمثالية على: http://localhost:${PORT}`);
+    console.log(`السيرفر يعمل بنجاح على بورت: ${PORT}`);
 });
