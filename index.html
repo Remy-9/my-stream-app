@@ -2,16 +2,18 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>موقع تفاعل البث</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
 
         html, body {
-            height: 100%;
             margin: 0;
             padding: 0;
+            width: 100%;
+            min-height: 100%;
+            background-color: #140f00; /* لون احتياطي داكن يطابق ألوان الخلفية لمنع البياض تماماً */
         }
 
         body {
@@ -19,30 +21,31 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            justify-content: flex-start; /* يبدأ من الأعلى ليعطي مرونة كاملة عند التدوير بالعرض */
             
-            /* 🔥 السر هنا لجعلها فل سكرين ومثالية للجوال والكمبيوتر */
+            /* 🔥 السر البرمجي لثبات الخلفية فل سكرين على كل الجوالات والأبعاد ومنع التكرار */
             background-image: url('logo-mom.png');
-            background-size: cover;         /* تغطية الشاشة بالكامل */
-            background-position: center center; /* تجميع الصورة في المنتصف تماماً */
-            background-repeat: no-repeat;   /* عدم تكرار الصورة */
-            background-attachment: fixed;   /* تثبيت الخلفية عند التمرير */
+            background-size: cover;         
+            background-position: center center; 
+            background-repeat: no-repeat;   
+            background-attachment: fixed; /* تثبيت رائع متناسق مع أبعاد html */
             
             color: #f1e4d3;
             text-align: center;
-            padding: 20px;
+            padding: 40px 20px; /* مسافة أمان علوية وسفلية مريحة للجوال */
+            overflow-y: auto; /* السماح بالتمرير السلس للمحتوى الداخلي دون تخريب الخلفية */
         }
 
         .container { 
             width: 100%;
-            max-width: 500px; /* حجم مثالي ومريح جداً على الجوالات واللابتوب */
-            background: rgba(20, 20, 20, 0.8); /* خلفية داكنة فخمة شبه شفافة تبرز التصميم الخلفي */
-            backdrop-filter: blur(8px); /* تأثير ضبابي زجاجي رهيب خلف الصندوق */
+            max-width: 440px; /* حجم انسيابي ومثالي جداً لشاشات الجوالات */
+            background: rgba(20, 20, 20, 0.85); /* تعتيم فخم شبه شفاف يبرز جمال الخلفية */
+            backdrop-filter: blur(10px); /* تأثير زجاجي ناعم يواكب التصاميم الحديثة */
             padding: 30px 25px;
             border-radius: 24px;
             border: 1px solid rgba(255, 170, 0, 0.25);
             box-shadow: 0 20px 40px rgba(0,0,0,0.7);
+            margin: auto; /* لتوسيط الصندوق تلقائياً في الشاشة */
         }
 
         .btn { 
@@ -59,11 +62,11 @@
             font-weight: bold;
             transition: all 0.2s ease;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            -webkit-tap-highlight-color: transparent; /* منع الوميض الأزرق المزعج عند الضغط في الجوال */
         }
 
         .btn:hover { 
             background-color: #5b73c7; 
-            transform: translateY(-2px); /* حركة خفيفة عند حرك الماوس باللابتوب */
         }
 
         .box { 
@@ -88,8 +91,8 @@
         }
 
         #statusText { color: #faa61a; font-weight: bold; margin-top: 10px; font-size: 17px; }
-        h1 { color: #ffaa00; margin-bottom: 5px; font-size: 28px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-        p { color: #e0e0e0; font-size: 16px; margin-bottom: 25px; }
+        h1 { color: #ffaa00; margin-bottom: 5px; font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        p { color: #e0e0e0; font-size: 15px; margin-bottom: 25px; }
     </style>
 </head>
 <body>
