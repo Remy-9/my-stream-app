@@ -2,41 +2,50 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>موقع تفاعل البث</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; }
 
-        /* 🔥 السر هنا: تثبيت الخلفية على الـ html مباشرة يضمن الفل سكرين على أي شاشة بالكون ومنع الفراغ السفلي */
-        html {
-            background-image: url('logo-mom.png');
-            background-size: cover;         
-            background-position: center center; 
-            background-repeat: no-repeat;   
-            background-attachment: fixed; /* تثبيت الخلفية لتتحرك العناصر فوقها بسلاسة */
-            height: 100%;
+        /* 🔥 هنا جعلنا لون الخلفية والأطراف أسود ملكي صافي */
+        html, body {
+            margin: 0;
+            padding: 0;
             width: 100%;
+            height: 100%;
+            background-color: #000000; 
+        }
+
+        /* 💡 الطبقة السحرية: تعرض صورتك في السنتر بدون قص، وتترك الأطراف باللون الأسود */
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh; /* توافق كامل مع أشرطة تصفح الجوال */
+            background-image: url('logo-mom.png');
+            background-size: contain; /* تحافظ على الصورة كاملة بدون تمطيط أو قص */
+            background-position: center center;
+            background-repeat: no-repeat;
+            z-index: -1; /* تبقى بالخلف دائماً */
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100vh; /* يغطي كامل الارتفاع المتاح */
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* يوسط الصندوق بالملّي في شاشة الطول */
-            background: transparent; /* جعل البودي شفاف عشان تظهر خلفية الـ html */
+            justify-content: center; /* يوسط صندوق الأزرار بدقة */
+            min-height: 100dvh;
             color: #f1e4d3;
             text-align: center;
-            padding: 40px 20px;
-            overflow-y: auto; /* السماح بالتمرير الطبيعي والمريح */
+            padding: 30px 20px;
+            overflow-y: auto;
+            background: transparent; /* جعل البودي شفاف لتظهر الطبقة الخلفية */
         }
 
-        /* تكتيك ذكي: إذا قلب المتابع الجوال بالعرض وصارت الشاشة قصيرة، نرفع الصندوق شوي عشان السكرول */
+        /* إذا كانت شاشة الجوال مقلوبة بالعرض وقصيرة، نرفع الصندوق قليلاً لسهولة التمرير */
         @media (max-height: 600px) {
             body {
                 justify-content: flex-start;
@@ -45,14 +54,14 @@
 
         .container { 
             width: 100%;
-            max-width: 440px; /* حجم انسيابي ومثالي جداً لشاشات الجوالات واللابتوب */
-            background: rgba(20, 20, 20, 0.85); /* تعتيم فخم شبه شفاف يبرز جمال الخلفية */
-            backdrop-filter: blur(10px); /* تأثير زجاجي ناعم يواكب التصاميم الحديثة */
+            max-width: 440px; 
+            background: rgba(20, 20, 20, 0.85); 
+            backdrop-filter: blur(10px); 
             padding: 30px 25px;
             border-radius: 24px;
             border: 1px solid rgba(255, 170, 0, 0.25);
             box-shadow: 0 20px 40px rgba(0,0,0,0.7);
-            margin: auto 0; /* يضمن موازنة الأبعاد من الأعلى والأسفل */
+            margin: auto 0; 
         }
 
         .btn { 
@@ -69,7 +78,7 @@
             font-weight: bold;
             transition: all 0.2s ease;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            -webkit-tap-highlight-color: transparent; /* منع الوميض الأزرق المزعج عند الضغط في الجوال */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .btn:hover { 
@@ -103,6 +112,8 @@
     </style>
 </head>
 <body>
+
+    <div class="background-overlay"></div>
 
     <audio id="adminAudio" autoplay></audio>
 
