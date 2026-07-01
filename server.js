@@ -31,13 +31,19 @@ io.on('connection', (socket) => {
         io.emit('displayTopic', topicText);
     });
 
-    socket.on('requestMic', () => {
-        const randomId = Math.floor(Math.random() * 900) + 100;
-        const participant = { id: socket.id, name: `مجهول #${randomId}` };
+    // === 🔥 تم التعديل هنا لاستقبال الاسم المرسل من المتابع ===
+    socket.on('requestMic', (username) => {
+        // إذا المتابع ما أرسل اسم، نحط له اسم احتياطي مجهول
+        const finalName = (username && username.trim() !== "") ? username.trim() : `مجهول #${Math.floor(Math.random() * 900) + 100}`;
+        
+        const participant = { 
+            id: socket.id, 
+            name: finalName // الحين راح يظهر الاسم الحقيقي اللي كتبه في لوحة التحكم
+        };
         
         if (!micQueue.some(p => p.id === socket.id)) {
             micQueue.push(participant);
-            io.emit('updateQueue', micQueue);
+            io.emit('updateQueue', micQueue); // إرسال القائمة المحدثة بالاسم الجديد للأدمن
         }
     });
 
@@ -47,7 +53,7 @@ io.on('connection', (socket) => {
         io.to(id).emit('micStatus', 'disconnected');
     });
 
-    // === 🔥 استقبال أمر الكتم من الأدمن وتوجيهه للمتابع المعني ===
+    // === استقبال أمر الكتم من الأدمن وتوجيهه للمتابع المعني ===
     socket.on('controlUserMic', ({ userId, mute }) => {
         io.to(userId).emit('userMicControl', { mute: mute });
     });

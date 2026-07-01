@@ -98,6 +98,23 @@
             margin-top: 20px; 
         }
 
+        /* ✨ تنسيق حقل إدخال الاسم الجديد ليكون متناسقاً مع التصميم */
+        .name-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            background-color: #40444b;
+            color: white;
+            border: 1px solid #202225;
+            text-align: center;
+            outline: none;
+        }
+        .name-input:focus {
+            border-color: #ffaa00;
+        }
+
         textarea { 
             width: 100%; 
             height: 100px; 
@@ -139,13 +156,14 @@
         </div>
 
         <div id="topicBox" class="box">
-            <h3>ما هو الموضوع الذي تريد طرحه?</h3>
+            <h3>ما هو الموضوع الذي تريد طرحه؟</h3>
             <textarea id="topicText" placeholder="اكتب الموضوع باختصار..."></textarea>
             <button class="btn" style="background-color: #0dbfe7;" onclick="submitTopic()">إرسال الموضوع</button>
         </div>
 
         <div id="micBox" class="box">
             <h3>طلب صعود مايك</h3>
+            <input type="text" id="usernameInput" class="name-input" placeholder="اكتب اسمك أو لقبك هنا..." maxlength="25">
             <button id="micBtn" class="btn" style="background-color: #0dbfe7;" onclick="askForMic()">طلب انضمام للقائمة 🎙️</button>
             <div id="statusText"></div>
         </div>
@@ -181,11 +199,20 @@
             document.getElementById('topicText').value = "";
         }
 
+        /* 🔥 تم التعديل هنا: التحقق من وجود الاسم وإرساله للسيرفر */
         function askForMic() {
-            socket.emit('requestMic');
+            const username = document.getElementById('usernameInput').value.trim();
+            if (username === "") {
+                return alert("الرجاء كتابة اسمك أولاً قبل طلب المايك! ⚠️");
+            }
+
+            // إرسال طلب المايك مع الاسم المكتوب
+            socket.emit('requestMic', username);
+            
             document.getElementById('statusText').innerText = "تم وضعك في قائمة الانتظار.. انتظر قبول ريمي ⏳";
             document.getElementById('micBtn').disabled = true;
             document.getElementById('micBtn').style.backgroundColor = "#72767d";
+            document.getElementById('usernameInput').disabled = true; // قفل خانة الاسم بعد الإرسال لمنع التعديل
         }
 
         // === منطق ربط الصوت الفعلي من جهة المتابع ===
@@ -231,6 +258,7 @@
                 document.getElementById('statusText').innerText = "تم إنزالك من المايك أو رفض الطلب.";
                 document.getElementById('micBtn').disabled = false;
                 document.getElementById('micBtn').style.backgroundColor = "#0dbfe7";
+                document.getElementById('usernameInput').disabled = false; // إعادة تفعيل حقل الاسم عند الخروج
                 
                 if (localStream) localStream.getTracks().forEach(track => track.stop());
                 if (peerConnection) peerConnection.close();
