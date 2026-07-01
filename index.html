@@ -8,7 +8,7 @@
     <style>
         * { box-sizing: border-box; }
 
-        /* 🔥 هنا جعلنا لون الخلفية والأطراف أسود ملكي صافي */
+        /* تلوين الأساس بالأسود الصافي */
         html, body {
             margin: 0;
             padding: 0;
@@ -17,18 +17,19 @@
             background-color: #000000; 
         }
 
-        /* 💡 الطبقة السحرية: رجعت تفرش وتملأ كامل الشاشة بدون ما تصغر */
+        /* الطبقة الخلفية: تملأ الشاشة بالكامل وتسمح بمرور اللمس */
         .background-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
-            height: 100dvh; /* توافق كامل مع أشرطة تصفح الجوال */
+            height: 100dvh; 
             background-image: url('logo-mom.png');
-            background-size: cover; /* 👈 رجعت تملأ الشاشة بالكامل وبحجمها الطبيعي الفخم */
+            background-size: cover; 
             background-position: center center;
             background-repeat: no-repeat;
-            z-index: -1; /* تبقى بالخلف دائماً */
+            z-index: -1; 
+            pointer-events: none; /* تضمن عدم اعتراض صباع المتابع عند الضغط */
         }
 
         body {
@@ -36,22 +37,22 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center; /* يوسط صندوق الأزرار بدقة */
+            justify-content: center; 
             min-height: 100dvh;
             color: #f1e4d3;
             text-align: center;
             padding: 30px 20px;
             overflow-y: auto;
-            background: transparent; /* جعل البودي شفاف لتظهر الطبقة الخلفية */
+            background: transparent; 
         }
 
-        /* إذا كانت شاشة الجوال مقلوبة بالعرض وقصيرة، نرفع الصندوق قليلاً لسهولة التمرير */
         @media (max-height: 600px) {
             body {
                 justify-content: flex-start;
             }
         }
 
+        /* 🔥 هنا السر: رفع الصندوق فوق الخلفية تماماً لمنع أي تعليق في اللمس */
         .container { 
             width: 100%;
             max-width: 440px; 
@@ -62,6 +63,8 @@
             border: 1px solid rgba(255, 170, 0, 0.25);
             box-shadow: 0 20px 40px rgba(0,0,0,0.7);
             margin: auto 0; 
+            position: relative;
+            z-index: 999; /* يجعل الأزرار في الواجهة دائماً */
         }
 
         .btn { 
@@ -79,6 +82,8 @@
             transition: all 0.2s ease;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             -webkit-tap-highlight-color: transparent;
+            position: relative;
+            z-index: 1000;
         }
 
         .btn:hover { 
@@ -104,6 +109,8 @@
             color: white; 
             border: 1px solid #202225; 
             resize: none;
+            position: relative;
+            z-index: 1001;
         }
 
         #statusText { color: #faa61a; font-weight: bold; margin-top: 10px; font-size: 17px; }
@@ -132,7 +139,7 @@
         </div>
 
         <div id="topicBox" class="box">
-            <h3>ما هو الموضوع الذي تريد طرحه؟</h3>
+            <h3>ما هو الموضوع الذي تريد طرحه?</h3>
             <textarea id="topicText" placeholder="اكتب الموضوع باختصار..."></textarea>
             <button class="btn" style="background-color: #0dbfe7;" onclick="submitTopic()">إرسال الموضوع</button>
         </div>
@@ -149,4 +156,99 @@
         let localStream;
         let peerConnection;
         
-        const rtcConfig = { iceServers
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        function showSection(sectionId) {
+            document.getElementById('storyBox').style.display = 'none';
+            document.getElementById('topicBox').style.display = 'none';
+            document.getElementById('micBox').style.display = 'none';
+            document.getElementById(sectionId).style.display = 'block';
+        }
+
+        function submitStory() {
+            const text = document.getElementById('storyText').value;
+            if(text.trim() === "") return alert("الرجاء كتابة القصة أولاً!");
+            socket.emit('sendStory', text);
+            alert("تم إرسال قصتك بنجاح! 🎉");
+            document.getElementById('storyText').value = "";
+        }
+
+        function submitTopic() {
+            const text = document.getElementById('topicText').value;
+            if(text.trim() === "") return alert("الرجاء كتابة الموضوع أولاً!");
+            socket.emit('sendTopic', text);
+            alert("تم إرسال موضوعك بنجاح! 🎉");
+            document.getElementById('topicText').value = "";
+        }
+
+        function askForMic() {
+            socket.emit('requestMic');
+            document.getElementById('statusText').innerText = "تم وضعك في قائمة الانتظار.. انتظر قبول ريمي ⏳";
+            document.getElementById('micBtn').disabled = true;
+            document.getElementById('micBtn').style.backgroundColor = "#72767d";
+        }
+
+        // === منطق ربط الصوت الفعلي من جهة المتابع ===
+        socket.on('receiveSignal', async ({ from, signal }) => {
+            if (signal.type === 'offer') {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    peerConnection = new RTCPeerConnection(rtcConfig);
+                    
+                    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                    peerConnection.ontrack = (event) => {
+                        console.log("تم استقبال صوت الستريمر بنجاح!");
+                        const adminAudio = document.getElementById('adminAudio');
+                        if (adminAudio && event.streams && event.streams[0]) {
+                            adminAudio.srcObject = event.streams[0];
+                        }
+                    };
+
+                    peerConnection.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            socket.emit('sendSignal', { to: from, signal: { type: 'candidate', candidate: event.candidate } });
+                        }
+                    };
+
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+
+                    socket.emit('sendSignal', { to: from, signal: answer });
+                    document.getElementById('statusText').innerText = "🎙️ أنت على المايك الآن مباشر مع ريمي!";
+                } catch (err) {
+                    console.error("فشل الوصول للمايك:", err);
+                    alert("يرجى السماح بصلاحية المايك للمتصفح!");
+                }
+            } else if (signal.type === 'candidate' && peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        });
+
+        socket.on('micStatus', (status) => {
+            if(status === 'disconnected') {
+                document.getElementById('statusText').innerText = "تم إنزالك من المايك أو رفض الطلب.";
+                document.getElementById('micBtn').disabled = false;
+                document.getElementById('micBtn').style.backgroundColor = "#0dbfe7";
+                
+                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                if (peerConnection) peerConnection.close();
+                const adminAudio = document.getElementById('adminAudio');
+                if (adminAudio) adminAudio.srcObject = null;
+            }
+        });
+
+        socket.on('userMicControl', (data) => {
+            if (localStream && localStream.getAudioTracks().length > 0) {
+                localStream.getAudioTracks()[0].enabled = !data.mute;
+                if (data.mute) {
+                    document.getElementById('statusText').innerText = "🤫 قام الستريمر بكتم مايكك حالياً.";
+                } else {
+                    document.getElementById('statusText').innerText = "🎙️ تم تفعيل مايكك، يمكنك التحدث الآن!";
+                }
+            }
+        });
+    </script>
+</body>
+</html>
